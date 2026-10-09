@@ -43,7 +43,7 @@
     </section>
 
     <div class="sec-head" id="zones">
-      <div><h2>Zones</h2><p class="sub small">Most behind first. Click a zone to open its work orders in a new tab.</p></div>
+      <div><h2>Zones</h2><p class="sub small">Most behind first. Click a zone to see its work orders.</p></div>
       <div class="legend" id="statusLegend"></div>
     </div>
     <section class="zones" id="zoneCards"></section>
@@ -189,7 +189,7 @@
     $('zoneCards').innerHTML = zones.map(z => {
       const s = status(z.days);
       const frac = Math.min(1, z.days / RING_MAX);
-      return `<a class="card zone" href="${zoneUrl(z.id)}" target="_blank" rel="noopener">
+      return `<a class="card zone" href="${zoneUrl(z.id)}">
         <div class="zt"><div><div class="name">${esc(z.id)}</div><div class="grp" title="${esc(z.group)}">${esc(shortGroup(z.group))}</div></div>${badge(s)}</div>
         <div class="body">
           <div class="ring" role="img" aria-label="${fmt(z.days, 1)} days to finish">
@@ -203,7 +203,7 @@
           </div>
         </div>
         <div class="why">${WHY[s]}</div>
-        <div class="foot"><span class="techs" title="${esc(rosterText(z))}">${TECH_ICON}${esc(techNames(z) || '—')}</span><span class="more">Work orders ↗</span></div>
+        <div class="foot"><span class="techs" title="${esc(rosterText(z))}">${TECH_ICON}${esc(techNames(z) || '—')}</span><span class="more">Work orders →</span></div>
       </a>`;
     }).join('');
 
@@ -276,11 +276,11 @@
   const zoneUrl = id => 'zone.html?zone=' + encodeURIComponent(id);
   document.addEventListener('click', e => {
     const z = e.target.closest('tr[data-zone]');
-    if (z) window.open(zoneUrl(z.dataset.zone), '_blank');
+    if (z) location.href = zoneUrl(z.dataset.zone);
   });
   document.addEventListener('keydown', e => {
     const z = e.target.closest && e.target.closest('tr[data-zone]');
-    if (z && e.key === 'Enter') window.open(zoneUrl(z.dataset.zone), '_blank');
+    if (z && e.key === 'Enter') location.href = zoneUrl(z.dataset.zone);
   });
 
   $('srcLink').href = 'https://docs.google.com/spreadsheets/d/' + P.SHEET_ID + '/edit';

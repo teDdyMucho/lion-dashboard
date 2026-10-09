@@ -48,7 +48,7 @@ Upload every `.html`, `.css` and `.js` file in this folder to any static host
 | Headline | One sentence: open work orders and how many working days to finish them, with a status badge |
 | 3 big numbers | Open work orders · Days to finish all · Zones behind |
 | Zone list | One row per zone, most behind first; bar length = days of work waiting; colour = **Behind / Watch / On track** |
-| Click a zone | Opens `zone.html` in a **new tab** listing that zone's open work orders (searchable, filterable, oldest first; click a job to read the full text) |
+| Click a zone | Opens `zone.html` (same tab; "Back to dashboard" returns) listing that zone's open work orders (searchable, filterable, oldest first; click a job to read the full text) |
 | More details | Collapsed: charts, the full numbers table (same as the Master Dashboard tab), and a "how to read" guide |
 
 Status thresholds (days to clear): **On track** ≤ 5 · **Watch** 5–10 · **Behind** > 10.
