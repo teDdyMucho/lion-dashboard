@@ -245,3 +245,6 @@ tr.click { cursor: pointer; }
 .chips span { background: var(--surface-2); border-radius: 8px; padding: 5px 10px; font-size: 13px; color: var(--ink-2); }
 .chips b { color: var(--ink); }
 .yes { color: var(--good-ink); font-weight: 700; } .no { color: var(--crit-ink); font-weight: 700; }
+
+/* Fallback: hide the badge Netlify injects on free-plan sites (official fix is Project configuration > General > Powered by Netlify badge > Off) */
+#nl-badge-frame, iframe[src*="/.netlify/scripts/hud"] { display: none !important; }
