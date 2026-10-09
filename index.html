@@ -1,0 +1,303 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Maintenance Backlog Dashboard</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<div class="app">
+  <aside class="side">
+    <div class="brand">
+      <div class="logo" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg></div>
+      <div><b>Lion Maintenance</b><span>Dashboard</span></div>
+    </div>
+    <div class="grp-label">Pages</div>
+    <a href="index.html" class="page active"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M9 6h11M9 12h11M9 18h11M4 6h.01M4 12h.01M4 18h.01"/></svg>Backlog</a>
+    <a href="performance.html" class="page"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 17l6-6 4 4 8-8"/><path d="M14 7h7v7"/></svg>Performance</a>
+    <div class="grp-label">On this page</div>
+    <a href="#overview" class="active"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10.5 12 3l9 7.5V20a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"/></svg>Overview</a>
+    <a href="#zones"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="3" width="8" height="8" rx="2"/><rect x="13" y="3" width="8" height="8" rx="2"/><rect x="3" y="13" width="8" height="8" rx="2"/><rect x="13" y="13" width="8" height="8" rx="2"/></svg>Zones</a>
+    <a href="#charts"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg>Charts</a>
+    <a href="#table"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 10h18M3 15h18M9 4v16"/></svg>All numbers</a>
+    <a href="#help"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M9.5 9.5a2.5 2.5 0 1 1 3.5 2.3c-.7.4-1 .9-1 1.7M12 17h.01"/></svg>How to read</a>
+    <a id="srcLink" target="_blank" rel="noopener"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><path d="M14 3v6h6M8 13h8M8 17h8"/></svg>Open Google Sheet</a>
+    <div class="foot"><span id="footDate"></span><span>Auto-refreshes every 10 min</span></div>
+  </aside>
+
+  <main class="main"><div class="wrap">
+    <header class="topbar">
+      <div><h1>Overview</h1><p class="sub">How much repair work is waiting, and how long it takes to finish.</p></div>
+      <div class="src">
+        <span class="pill"><span class="dot" id="srcDot"></span><span id="srcText">Loading…</span></span>
+        <button class="btn" id="refreshBtn" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-2.6-6.4"/><path d="M21 3v6h-6"/></svg>Refresh</button>
+      </div>
+    </header>
+
+    <section class="hero" id="overview" aria-live="polite">
+      <div class="banner" id="summary"><p class="headline">Loading data from Google Sheets…</p></div>
+      <div class="kpis" id="kpis"></div>
+    </section>
+
+    <div class="sec-head" id="zones">
+      <div><h2>Zones</h2><p class="sub small">Most behind first. Click a zone to open its work orders in a new tab.</p></div>
+      <div class="legend" id="statusLegend"></div>
+    </div>
+    <section class="zones" id="zoneCards"></section>
+
+    <div class="sec-head" id="charts"><div><h2>Charts</h2></div></div>
+    <div class="grid2">
+      <section class="card">
+        <h2 style="font-size:16px">Days to clear backlog</h2>
+        <p class="sub small">Shorter is better. Dashed lines mark the 5-day and 10-day limits.</p>
+        <div class="chart-body" id="daysChart"></div>
+      </section>
+      <section class="card">
+        <h2 style="font-size:16px">Work order size mix</h2>
+        <p class="sub small">Open work orders per zone, split by job size (LVL 1 = quick, LVL 5 = big).</p>
+        <div class="legend" id="lvlLegend" style="margin:10px 0 0"></div>
+        <div class="chart-body" id="lvlChart" style="padding-top:8px"></div>
+      </section>
+    </div>
+
+    <div class="sec-head" id="table"><div><h2>Details</h2></div></div>
+    <details class="card sect" style="margin-top:0">
+      <summary>All numbers by zone <span class="small">same as the Master Dashboard tab</span></summary>
+      <div class="inner table-wrap"><table id="zoneTable"></table></div>
+    </details>
+    <details class="card sect help" id="help">
+      <summary>How to read this dashboard</summary>
+      <div class="inner">
+      <dl>
+        <dt>Days to clear</dt><dd>If no new work came in, how many working days until every open work order is finished. This is the main number to watch.</dd>
+        <dt>Status</dt><dd><span class="badge b-good" data-s="good"></span> up to 5 days (one work week) &nbsp; <span class="badge b-warn" data-s="warn"></span> 5–10 days &nbsp; <span class="badge b-crit" data-s="crit"></span> more than 10 days</dd>
+        <dt>LVL (effort points)</dt><dd>Every work order gets a level from 1 (quick job) to 5 (big job). Adding them up gives the total effort waiting.</dd>
+        <dt>Daily capacity</dt><dd>How many LVL points the zone's technicians can finish in one day (the number next to each tech's name).</dd>
+        <dt>Not yet assigned</dt><dd>Work orders still marked New — nobody is working on them yet.</dd>
+        <dt>Where the data comes from</dt><dd>The Portfolio Maintenance &amp; Backlog Google Sheet (link in the sidebar). The page reloads it every 10 minutes.</dd>
+      </dl>
+      </div>
+    </details>
+  </div></main>
+</div>
+
+<div class="tip" id="tip" role="tooltip"></div>
+
+<script src="parser.js"></script>
+<script src="snapshot.js"></script>
+<script>
+(function () {
+  const P = window.LionParser;
+  const GOOD_MAX = 5, WARN_MAX = 10;              // days-to-clear thresholds
+  const REFRESH_MS = 10 * 60 * 1000;
+  const ICONS = {
+    good: '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3 8.5l3 3 7-7" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+    warn: '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 2l6.5 12h-13z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M8 6.5v3.5M8 12v.2" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>',
+    crit: '<svg viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="6.5" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M8 4.5v4.2M8 11v.2" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>'
+  };
+  const LABEL = { good: 'On track', warn: 'Watch', crit: 'Behind' };
+  const TECH_ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg>';
+  const WHY = { good: 'Can finish within a week', warn: 'More than a week of work', crit: 'More than 2 weeks of work' };
+  const $ = id => document.getElementById(id);
+  const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  const fmt = (n, d = 0) => Number(n || 0).toLocaleString(undefined, { minimumFractionDigits: d, maximumFractionDigits: d });
+  const status = days => days > WARN_MAX ? 'crit' : days > GOOD_MAX ? 'warn' : 'good';
+  const badge = s => `<span class="badge b-${s}">${ICONS[s]}${LABEL[s]}</span>`;
+  const shortGroup = g => (g || '').length > 40 ? g.split(',')[0] + ' & more' : (g || '');
+  const niceDate = s => s ? new Date(s + 'T00:00').toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' }) : '—';
+  const rosterText = z => typeof z.roster === 'string' ? z.roster : (z.roster || []).map(r => `${r.name} (${r.cap})`).join(', ');
+  const techNames = z => (z.roster && typeof z.roster !== 'string') ? z.roster.filter(r => r.cap > 0).map(r => r.name).join(', ') : rosterText(z);
+
+  let model = null;
+
+  // ---------- data loading ----------
+  async function loadLive() {
+    const texts = {};
+    await Promise.all(P.TABS.map(async tab => {
+      const res = await fetch(P.csvUrl(tab), { cache: 'no-store' });
+      if (!res.ok) throw new Error(tab + ' HTTP ' + res.status);
+      texts[tab] = await res.text();
+    }));
+    const m = P.buildModel(texts);
+    if (!m.zones.length) throw new Error('No zones found in sheet');
+    return m;
+  }
+
+  async function load() {
+    $('refreshBtn').disabled = true;
+    $('srcText').textContent = 'Loading…';
+    try {
+      model = await loadLive();
+      $('srcDot').className = 'dot live';
+      $('srcText').textContent = 'Live · updated ' + new Date().toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+    } catch (e) {
+      console.warn('Live load failed, using snapshot:', e);
+      if (!model && window.LION_SNAPSHOT) model = window.LION_SNAPSHOT;
+      $('srcDot').className = 'dot off';
+      $('srcText').textContent = window.LION_SNAPSHOT
+        ? 'Offline copy · ' + new Date(window.LION_SNAPSHOT.snapshotAt).toLocaleString([], { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })
+        : 'Could not load data';
+    }
+    $('refreshBtn').disabled = false;
+    if (model) render();
+  }
+
+  // ---------- rendering ----------
+  function render() {
+    const zones = model.zones.slice().sort((a, b) => b.days - a.days);
+    const k = model.kpi, t = model.total || {};
+    const counts = { good: 0, warn: 0, crit: 0 };
+    zones.forEach(z => counts[status(z.days)]++);
+    const pStatus = status(k.days);
+    const crit = zones.filter(z => status(z.days) === 'crit');
+    const dates = model.exportDates.min === model.exportDates.max ? niceDate(model.exportDates.max) : niceDate(model.exportDates.min) + ' – ' + niceDate(model.exportDates.max);
+
+    // Headline banner
+    const meaning = pStatus === 'good' ? 'The team can finish everything within one work week.'
+      : pStatus === 'warn' ? 'A bit more than one work week of repairs is waiting.'
+      : 'More than two weeks of repairs are waiting — the team needs help.';
+    const critText = crit.length ? ` <b>${crit.map(z => z.id).join(' and ')}</b> ${crit.length > 1 ? 'need' : 'needs'} help the most.` : '';
+    $('summary').innerHTML = `
+      <div class="eyebrow">Portfolio status</div>
+      ${badge(pStatus)}
+      <p class="headline">There are <span class="hl">${fmt(k.openWos)} open work orders</span>. At today's pace the team needs about <span class="hl">${fmt(k.days, 1)} working days</span> to finish them all.</p>
+      <p class="meaning">${meaning}${critText}</p>`;
+    $('footDate').textContent = 'AppFolio export: ' + dates;
+
+    const KI = {
+      list: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M9 6h11M9 12h11M9 18h11M4 6h.01M4 12h.01M4 18h.01"/></svg>',
+      user: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></svg>',
+      clock: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>',
+      flag: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 21V4a1 1 0 0 1 1-1h11l-2 4 2 4H6"/></svg>'
+    };
+    const zonesTone = counts.crit ? 'crit' : counts.warn ? 'warn' : 'good';
+    $('kpis').innerHTML = [
+      ['blue', KI.list, 'Open work orders', fmt(k.openWos), '', `${fmt(t.scheduled)} scheduled`],
+      ['gray', KI.user, 'Not yet assigned', fmt(t.newWos), '', 'waiting for a tech'],
+      [pStatus, KI.clock, 'Days to finish all', fmt(k.days, 1), 'days', `about ${fmt(k.weeks, 1)} work weeks`],
+      [zonesTone, KI.flag, 'Zones behind', fmt(counts.crit), `of ${zones.length}`, `${counts.warn} to watch · ${counts.good} on track`]
+    ].map(([tone, ico, l, v, u, h]) => `<div class="card kpi"><div class="ico ${tone}">${ico}</div><div><div class="label">${l}</div><div class="value">${v}${u ? `<small>${u}</small>` : ''}</div><div class="hint">${h}</div></div></div>`).join('');
+
+    $('statusLegend').innerHTML = ['crit', 'warn', 'good'].map(s => `<span>${badge(s)}<span class="n">${counts[s]}</span></span>`).join('');
+    document.querySelectorAll('[data-s]').forEach(el => { const s = el.dataset.s; el.innerHTML = ICONS[s] + LABEL[s]; });
+
+    // Zone cards (ring = days to finish; a full ring is twice the "behind" limit)
+    const RING_MAX = WARN_MAX * 2, R = 42, C = 2 * Math.PI * R;
+    $('zoneCards').innerHTML = zones.map(z => {
+      const s = status(z.days);
+      const frac = Math.min(1, z.days / RING_MAX);
+      return `<a class="card zone" href="${zoneUrl(z.id)}" target="_blank" rel="noopener">
+        <div class="zt"><div><div class="name">${esc(z.id)}</div><div class="grp" title="${esc(z.group)}">${esc(shortGroup(z.group))}</div></div>${badge(s)}</div>
+        <div class="body">
+          <div class="ring" role="img" aria-label="${fmt(z.days, 1)} days to finish">
+            <svg viewBox="0 0 100 100"><circle class="bg" cx="50" cy="50" r="${R}"/><circle class="fg" cx="50" cy="50" r="${R}" stroke="var(--${s})" stroke-dasharray="${C}" stroke-dashoffset="${C * (1 - frac)}"/></svg>
+            <div class="c"><b class="num">${fmt(z.days, 1)}</b><span>days</span></div>
+          </div>
+          <div class="stats">
+            <div><span>Open work orders</span><b>${fmt(z.openWos)}</b></div>
+            <div><span>Not yet assigned</span><b>${fmt(z.newWos)}</b></div>
+            <div><span>Older than 2 weeks</span><b>${fmt(z.over2wk)} LVL</b></div>
+          </div>
+        </div>
+        <div class="why">${WHY[s]}</div>
+        <div class="foot"><span class="techs" title="${esc(rosterText(z))}">${TECH_ICON}${esc(techNames(z) || '—')}</span><span class="more">Work orders ↗</span></div>
+      </a>`;
+    }).join('');
+
+    // Days chart
+    const axisMax = Math.ceil(Math.max(WARN_MAX + 2, ...zones.map(z => z.days)) / 2) * 2;
+    const pct = v => v / axisMax * 100;
+    $('daysChart').innerHTML = zones.map((z, i) => {
+      const s = status(z.days);
+      return `<div class="chart-row" data-tip="days" data-zone="${esc(z.id)}">
+        <div class="lab">${esc(z.id)}</div>
+        <div class="track">
+          ${i === 0 ? `<span class="ref-lab" style="left:${pct(GOOD_MAX)}%">5 days</span><span class="ref-lab" style="left:${pct(WARN_MAX)}%">10 days</span>` : ''}
+          <span class="ref" style="left:${pct(GOOD_MAX)}%"></span><span class="ref" style="left:${pct(WARN_MAX)}%"></span>
+          <div class="bar" style="width:${pct(z.days)}%"><span style="flex:1;background:var(--${s})"></span></div>
+        </div>
+        <div class="val num">${fmt(z.days, 1)} d</div></div>`;
+    }).join('');
+
+    // LVL mix chart
+    $('lvlLegend').innerHTML = [1, 2, 3, 4, 5].map(l => `<span><i class="sw" style="background:var(--l${l})"></i>LVL ${l}</span>`).join('');
+    const maxWos = Math.max(...zones.map(z => z.openWos));
+    $('lvlChart').innerHTML = zones.map(z => {
+      const lv = z.lvl || [0, 0, 0, 0, 0];
+      return `<div class="chart-row" data-tip="lvl" data-zone="${esc(z.id)}">
+        <div class="lab">${esc(z.id)}</div>
+        <div class="track"><div class="bar" style="width:${z.openWos / maxWos * 100}%">
+          ${lv.map((c, i) => c ? `<span style="flex:${c};background:var(--l${i + 1})"></span>` : '').join('')}
+        </div></div>
+        <div class="val num">${fmt(z.openWos)} WOs</div></div>`;
+    }).join('');
+
+    // Table
+    const head = ['Zone', 'Status', 'Property group', 'Techs', 'Open WOs', 'LVL backlog', 'LVL / day', 'Days', 'Weeks', 'LVL >1 wk', 'LVL >2 wk', 'Scheduled', 'New', 'L1', 'L2', 'L3', 'L4', 'L5'];
+    const row = (z, s) => [
+      `<td>${esc(z.id)}</td>`, `<td class="l">${s ? badge(s) : ''}</td>`, `<td class="l" title="${esc(z.group)}">${esc(shortGroup(z.group))}</td>`,
+      `<td class="l">${esc(rosterText(z))}</td>`,
+      ...[z.openWos, z.totalLvl, z.dailyCap].map(v => `<td class="num">${fmt(v)}</td>`),
+      `<td class="num">${fmt(z.days, 2)}</td>`, `<td class="num">${fmt(z.weeks, 2)}</td>`,
+      ...[z.over1wk, z.over2wk, z.scheduled, z.newWos, ...(z.lvl || [])].map(v => `<td class="num">${fmt(v)}</td>`)
+    ].join('');
+    $('zoneTable').innerHTML = `<thead><tr>${head.map((h, i) => `<th class="${i < 4 ? 'l' : ''}">${h}</th>`).join('')}</tr></thead>
+      <tbody>${model.zones.map(z => `<tr class="click" data-zone="${esc(z.id)}" tabindex="0">${row(z, status(z.days))}</tr>`).join('')}</tbody>
+      ${t.id ? `<tfoot><tr>${row({ ...t, id: 'Portfolio total' }, pStatus)}</tr></tfoot>` : ''}`;
+  }
+
+  // ---------- tooltip ----------
+  const tip = $('tip');
+  document.addEventListener('mousemove', e => {
+    const row = e.target.closest('[data-tip]');
+    if (!row || !model) { tip.style.display = 'none'; return; }
+    const z = model.zones.find(x => x.id === row.dataset.zone);
+    if (!z) return;
+    let html = `<b>${esc(z.id)} · ${esc(shortGroup(z.group))}</b>`;
+    if (row.dataset.tip === 'days') {
+      html += `<div class="r"><span>Days to clear</span><span class="num">${fmt(z.days, 2)}</span></div>
+        <div class="r"><span>LVL waiting</span><span class="num">${fmt(z.totalLvl)}</span></div>
+        <div class="r"><span>Capacity / day</span><span class="num">${fmt(z.dailyCap)}</span></div>${badge(status(z.days))}`;
+    } else {
+      (z.lvl || []).forEach((c, i) => { html += `<div class="r"><span><i class="sw" style="background:var(--l${i + 1})"></i>LVL ${i + 1}</span><span class="num">${fmt(c)}</span></div>`; });
+      html += `<div class="r" style="border-top:1px solid rgba(255,255,255,.2);margin-top:4px;padding-top:4px"><span>Total</span><span class="num">${fmt(z.openWos)}</span></div>`;
+    }
+    tip.innerHTML = html;
+    tip.style.display = 'block';
+    const w = tip.offsetWidth, h = tip.offsetHeight;
+    tip.style.left = Math.min(e.clientX + 14, innerWidth - w - 8) + 'px';
+    tip.style.top = Math.min(e.clientY + 14, innerHeight - h - 8) + 'px';
+  });
+
+  // ---------- zone drill-down: opens zone.html in a new tab ----------
+  const zoneUrl = id => 'zone.html?zone=' + encodeURIComponent(id);
+  document.addEventListener('click', e => {
+    const z = e.target.closest('tr[data-zone]');
+    if (z) window.open(zoneUrl(z.dataset.zone), '_blank');
+  });
+  document.addEventListener('keydown', e => {
+    const z = e.target.closest && e.target.closest('tr[data-zone]');
+    if (z && e.key === 'Enter') window.open(zoneUrl(z.dataset.zone), '_blank');
+  });
+
+  $('srcLink').href = 'https://docs.google.com/spreadsheets/d/' + P.SHEET_ID + '/edit';
+
+  // Highlight the sidebar link for the section currently in view
+  const navLinks = [...document.querySelectorAll('.side a[href^="#"]')];
+  const sections = navLinks.map(a => document.querySelector(a.getAttribute('href'))).filter(Boolean);
+  const io = new IntersectionObserver(entries => {
+    entries.forEach(en => { if (en.isIntersecting) navLinks.forEach(a => a.classList.toggle('active', a.getAttribute('href') === '#' + en.target.id)); });
+  }, { rootMargin: '-30% 0px -60% 0px' });
+  sections.forEach(s => io.observe(s));
+  $('refreshBtn').addEventListener('click', load);
+
+  if (window.LION_SNAPSHOT) { model = window.LION_SNAPSHOT; render(); }
+  load();
+  setInterval(load, REFRESH_MS);
+})();
+</script>
+</body>
+</html>

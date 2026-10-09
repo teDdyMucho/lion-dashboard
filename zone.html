@@ -1,0 +1,145 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Zone work orders</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<div class="wrap zpage">
+  <a class="back" href="index.html#zones">← Back to dashboard</a>
+  <div class="zhead">
+    <div><h1 id="title">Loading…</h1><p class="sub" id="subtitle"></p></div>
+    <div class="src">
+      <span class="pill"><span class="dot" id="srcDot"></span><span id="srcText">Loading…</span></span>
+      <button class="btn" id="refreshBtn" type="button">↻ Refresh</button>
+    </div>
+  </div>
+  <div class="stats-row" id="stats"></div>
+
+  <div class="tools">
+    <input type="search" id="woSearch" placeholder="Search property, job, vendor, WO #…">
+    <select id="woStatus" aria-label="Filter by status"></select>
+    <select id="woLvl" aria-label="Filter by job size"></select>
+    <select id="woSort" aria-label="Sort">
+      <option value="age">Oldest first</option>
+      <option value="lvl">Biggest jobs first</option>
+      <option value="new">Newest first</option>
+    </select>
+    <span class="count" id="count"></span>
+  </div>
+  <div class="wotable"><table id="woTable"></table></div>
+  <p class="small" style="margin-top:14px">Click a job description to read the full text. Age = days since the work order was created, counted to the export date.</p>
+</div>
+
+<script src="parser.js"></script>
+<script src="snapshot.js"></script>
+<script>
+(function () {
+  const P = window.LionParser;
+  const GOOD_MAX = 5, WARN_MAX = 10;
+  const REFRESH_MS = 10 * 60 * 1000;
+  const ICONS = {
+    good: '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3 8.5l3 3 7-7" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+    warn: '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 2l6.5 12h-13z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M8 6.5v3.5M8 12v.2" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>',
+    crit: '<svg viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="6.5" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M8 4.5v4.2M8 11v.2" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>'
+  };
+  const LABEL = { good: 'On track', warn: 'Watch', crit: 'Behind' };
+  const $ = id => document.getElementById(id);
+  const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  const fmt = (n, d = 0) => Number(n || 0).toLocaleString(undefined, { minimumFractionDigits: d, maximumFractionDigits: d });
+  const status = days => days > WARN_MAX ? 'crit' : days > GOOD_MAX ? 'warn' : 'good';
+  const badge = s => `<span class="badge b-${s}">${ICONS[s]}${LABEL[s]}</span>`;
+  const shortGroup = g => (g || '').length > 40 ? g.split(',')[0] + ' & more' : (g || '');
+  const niceDate = s => s ? new Date(s + 'T00:00').toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' }) : '—';
+  const rosterText = z => typeof z.roster === 'string' ? z.roster : (z.roster || []).map(r => `${r.name} (${r.cap})`).join(', ');
+
+  const zoneId = new URLSearchParams(location.search).get('zone') || 'Zone 1';
+  let cur = null;
+
+  async function loadLive() {
+    const texts = {};
+    await Promise.all(['Master Dashboard', zoneId].map(async tab => {
+      const res = await fetch(P.csvUrl(tab), { cache: 'no-store' });
+      if (!res.ok) throw new Error(tab + ' HTTP ' + res.status);
+      texts[tab] = await res.text();
+    }));
+    const z = P.buildModel(texts).zones.find(z => z.id === zoneId);
+    if (!z) throw new Error(zoneId + ' not found in sheet');
+    return z;
+  }
+
+  async function load() {
+    $('refreshBtn').disabled = true;
+    $('srcText').textContent = 'Loading…';
+    try {
+      cur = await loadLive();
+      $('srcDot').className = 'dot live';
+      $('srcText').textContent = 'Live · updated ' + new Date().toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+    } catch (e) {
+      console.warn('Live load failed, using snapshot:', e);
+      if (!cur && window.LION_SNAPSHOT) cur = window.LION_SNAPSHOT.zones.find(z => z.id === zoneId) || null;
+      $('srcDot').className = 'dot off';
+      $('srcText').textContent = cur ? 'Offline copy · ' + new Date(window.LION_SNAPSHOT.snapshotAt).toLocaleString([], { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }) : 'Could not load data';
+    }
+    $('refreshBtn').disabled = false;
+    if (cur) renderHead(); else $('title').textContent = zoneId + ' — no data';
+    renderWos();
+  }
+
+  function renderHead() {
+    const s = status(cur.days);
+    document.title = `${cur.id} · ${shortGroup(cur.group)} — work orders`;
+    $('title').innerHTML = `${esc(cur.id)} <span class="sub" style="font-weight:500">· ${esc(cur.group)}</span> ${badge(s)}`;
+    $('subtitle').textContent = `Techs: ${rosterText(cur)} · AppFolio export of ${niceDate(cur.exportDate)}`;
+    $('stats').innerHTML = [
+      [fmt(cur.openWos), 'open work orders'], [fmt(cur.newWos), 'not yet assigned'], [fmt(cur.days, 1), 'days to finish'],
+      [fmt(cur.totalLvl), 'LVL waiting'], [fmt(cur.dailyCap), 'LVL per day'], [fmt(cur.over2wk), 'LVL older than 2 weeks']
+    ].map(([v, l]) => `<span><b>${v}</b>${l}</span>`).join('');
+    const statuses = [...new Set((cur.wos || []).map(w => w.status))].sort();
+    const keepS = $('woStatus').value, keepL = $('woLvl').value;
+    $('woStatus').innerHTML = `<option value="">All statuses</option>` + statuses.map(s => `<option>${esc(s)}</option>`).join('');
+    $('woLvl').innerHTML = `<option value="">All sizes</option>` + [1, 2, 3, 4, 5].map(l => `<option value="${l}">LVL ${l}</option>`).join('');
+    $('woStatus').value = keepS; $('woLvl').value = keepL;
+  }
+
+  function renderWos() {
+    const wos = (cur && cur.wos) || [];
+    const q = $('woSearch').value.trim().toLowerCase(), st = $('woStatus').value, lv = $('woLvl').value, so = $('woSort').value;
+    const list = wos.filter(w => (!st || w.status === st) && (!lv || w.lvl === +lv) &&
+      (!q || [w.property, w.wo, w.desc, w.vendor, w.city, w.instr].join(' ').toLowerCase().includes(q)));
+    list.sort(so === 'lvl' ? (a, b) => b.lvl - a.lvl || (b.age || 0) - (a.age || 0)
+      : so === 'new' ? (a, b) => (a.age || 0) - (b.age || 0) : (a, b) => (b.age || 0) - (a.age || 0));
+    $('count').textContent = list.length === wos.length ? `${wos.length} work orders` : `${list.length} of ${wos.length} work orders`;
+    if (!wos.length) { $('woTable').innerHTML = '<tbody><tr><td class="l">No work order details available for this zone.</td></tr></tbody>'; return; }
+    $('woTable').innerHTML = `<thead><tr><th class="l">Age</th><th class="l">Size</th><th class="l">WO #</th><th class="l">Status</th><th class="l">Job</th><th class="l">Property</th><th class="l">Vendor</th><th class="l">Created</th></tr></thead>
+      <tbody>${list.map(w => {
+        const l = Math.min(5, Math.max(1, w.lvl || 1));
+        const long = w.desc.length > 160;
+        return `<tr>
+          <td class="l num ${w.age > 14 ? 'age-hi' : w.age > 7 ? 'age-md' : ''}">${w.age == null ? '—' : fmt(w.age) + ' d'}</td>
+          <td class="l"><span class="lvl c${l}" style="background:var(--l${l})">${w.lvl || '?'}</span></td>
+          <td class="l num">${esc(w.wo)}</td><td class="l">${esc(w.status)}</td>
+          <td class="wrapcell" style="max-width:480px"><div class="jobtxt${long ? '' : ' open'}" title="${esc(w.instr)}">${esc(w.desc)}</div>${long ? '<span class="hint">Show more</span>' : ''}</td>
+          <td class="wrapcell" style="min-width:200px">${esc(w.property)}</td><td class="l">${esc(w.vendor)}</td><td class="l num">${niceDate(w.created)}</td></tr>`;
+      }).join('') || '<tr><td class="l" colspan="8">No work orders match these filters.</td></tr>'}</tbody>`;
+  }
+
+  document.addEventListener('click', e => {
+    const cell = e.target.closest('td');
+    const j = cell && cell.querySelector('.jobtxt'), h = cell && cell.querySelector('.hint');
+    if (j && h) { j.classList.toggle('open'); h.textContent = j.classList.contains('open') ? 'Show less' : 'Show more'; }
+  });
+  ['woSearch', 'woStatus', 'woLvl', 'woSort'].forEach(id => $(id).addEventListener('input', renderWos));
+  $('refreshBtn').addEventListener('click', load);
+
+  if (window.LION_SNAPSHOT) { cur = window.LION_SNAPSHOT.zones.find(z => z.id === zoneId) || null; if (cur) { renderHead(); renderWos(); } }
+  load();
+  setInterval(load, REFRESH_MS);
+})();
+</script>
+</body>
+</html>
