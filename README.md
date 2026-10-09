@@ -63,6 +63,7 @@ Change `GOOD_MAX` / `WARN_MAX` at the top of the script in `index.html` and `zon
 - `parser.js` / `perf-parser.js` – convert each sheet's tabs (CSV) into a data model; shared by browser and Node
 - `snapshot.js` / `snapshot-perf.js` – generated offline copies of the data (`node build-snapshot.js`)
 - `build-snapshot.js` – regenerates `snapshot.js` and prints a parse check per zone
+- `logo.png` / `favicon.png` – sidebar logo and browser-tab icon (made from `Logo_Black_Main.png`)
 - `serve.js` / `start-dashboard.bat` – tiny local web server
 
 ## Requirements on the sheet
