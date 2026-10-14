@@ -12,6 +12,7 @@
 </head>
 <body>
 <div class="wrap zpage">
+    <div class="offline-bar" id="offlineBar" hidden><b>Showing an offline copy.</b> <span id="offlineWhy"></span> Check that the Google Sheet is shared as “Anyone with the link – Viewer”, then press Refresh.</div>
   <a class="back" href="index.html#zones">← Back to dashboard</a>
   <div class="zhead">
     <div><h1 id="title">Loading…</h1><p class="sub" id="subtitle"></p></div>
@@ -80,9 +81,12 @@
     try {
       cur = await loadLive();
       $('srcDot').className = 'dot live';
+      $('offlineBar').hidden = true;
       $('srcText').textContent = 'Live · updated ' + new Date().toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
     } catch (e) {
       console.warn('Live load failed, using snapshot:', e);
+      $('offlineBar').hidden = false;
+      $('offlineWhy').textContent = /401|403/.test(String(e)) ? 'Google Sheets refused access (' + (String(e).match(/40[13]/)||[''])[0] + ').' : 'Google Sheets could not be reached.';
       if (!cur && window.LION_SNAPSHOT) cur = window.LION_SNAPSHOT.zones.find(z => z.id === zoneId) || null;
       $('srcDot').className = 'dot off';
       $('srcText').textContent = cur ? 'Offline copy · ' + new Date(window.LION_SNAPSHOT.snapshotAt).toLocaleString([], { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }) : 'Could not load data';

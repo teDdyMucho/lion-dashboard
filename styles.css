@@ -247,3 +247,6 @@ tr.click { cursor: pointer; }
 
 /* Fallback: hide the badge Netlify injects on free-plan sites (official fix is Project configuration > General > Powered by Netlify badge > Off) */
 #nl-badge-frame, iframe[src*="/.netlify/scripts/hud"] { display: none !important; }
+
+/* Offline warning */
+.offline-bar { background: var(--warn-bg); color: var(--warn-ink); border: 1px solid #f3d9a4; border-radius: 12px; padding: 12px 16px; margin-bottom: 16px; font-size: 14px; }

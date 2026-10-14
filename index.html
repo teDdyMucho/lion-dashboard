@@ -31,6 +31,7 @@
   </aside>
 
   <main class="main"><div class="wrap">
+    <div class="offline-bar" id="offlineBar" hidden><b>Showing an offline copy.</b> <span id="offlineWhy"></span> Check that the Google Sheet is shared as “Anyone with the link – Viewer”, then press Refresh.</div>
     <header class="topbar">
       <div><h1>Overview</h1><p class="sub">How much repair work is waiting, and how long it takes to finish.</p></div>
       <div class="src">
@@ -134,9 +135,12 @@
     try {
       model = await loadLive();
       $('srcDot').className = 'dot live';
+      $('offlineBar').hidden = true;
       $('srcText').textContent = 'Live · updated ' + new Date().toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
     } catch (e) {
       console.warn('Live load failed, using snapshot:', e);
+      $('offlineBar').hidden = false;
+      $('offlineWhy').textContent = /401|403/.test(String(e)) ? 'Google Sheets refused access (' + (String(e).match(/40[13]/)||[''])[0] + ').' : 'Google Sheets could not be reached.';
       if (!model && window.LION_SNAPSHOT) model = window.LION_SNAPSHOT;
       $('srcDot').className = 'dot off';
       $('srcText').textContent = window.LION_SNAPSHOT
