@@ -182,7 +182,7 @@
     const zonesTone = counts.crit ? 'crit' : counts.warn ? 'warn' : 'good';
     $('kpis').innerHTML = [
       ['blue', KI.list, 'Open work orders', fmt(k.openWos), '', `${fmt(t.scheduled)} scheduled`],
-      ['gray', KI.user, 'Not yet assigned', fmt(t.newWos), '', 'waiting for a tech'],
+      ['gray', KI.user, 'Not yet assigned', fmt(t.newWos), '', t.urgent ? `${fmt(t.urgent)} marked urgent` : 'waiting for a tech'],
       [pStatus, KI.clock, 'Days to finish all', fmt(k.days, 1), 'days', `about ${fmt(k.weeks, 1)} work weeks`],
       [zonesTone, KI.flag, 'Zones behind', fmt(counts.crit), `of ${zones.length}`, `${counts.warn} to watch · ${counts.good} on track`]
     ].map(([tone, ico, l, v, u, h]) => `<div class="card kpi"><div class="ico ${tone}">${ico}</div><div><div class="label">${l}</div><div class="value">${v}${u ? `<small>${u}</small>` : ''}</div><div class="hint">${h}</div></div></div>`).join('');
@@ -205,6 +205,7 @@
           <div class="stats">
             <div><span>Open work orders</span><b>${fmt(z.openWos)}</b></div>
             <div><span>Not yet assigned</span><b>${fmt(z.newWos)}</b></div>
+            <div><span>Urgent</span><b class="${z.urgent ? 'net-up' : ''}">${fmt(z.urgent)}</b></div>
             <div><span>Older than 2 weeks</span><b>${fmt(z.over2wk)} LVL</b></div>
           </div>
         </div>
@@ -229,10 +230,11 @@
     }).join('');
 
     // LVL mix chart
-    $('lvlLegend').innerHTML = [1, 2, 3, 4, 5].map(l => `<span><i class="sw" style="background:var(--l${l})"></i>LVL ${l}</span>`).join('');
+    const LEVELS = model.levels || 5;
+    $('lvlLegend').innerHTML = Array.from({ length: LEVELS }, (_, i) => i + 1).map(l => `<span><i class="sw" style="background:var(--l${l})"></i>LVL ${l}</span>`).join('');
     const maxWos = Math.max(...zones.map(z => z.openWos));
     $('lvlChart').innerHTML = zones.map(z => {
-      const lv = z.lvl || [0, 0, 0, 0, 0];
+      const lv = z.lvl || [];
       return `<div class="chart-row" data-tip="lvl" data-zone="${esc(z.id)}">
         <div class="lab">${esc(z.id)}</div>
         <div class="track"><div class="bar" style="width:${z.openWos / maxWos * 100}%">
@@ -242,13 +244,13 @@
     }).join('');
 
     // Table
-    const head = ['Zone', 'Status', 'Property group', 'Techs', 'Open WOs', 'LVL backlog', 'LVL / day', 'Days', 'Weeks', 'LVL >1 wk', 'LVL >2 wk', 'Scheduled', 'New', 'L1', 'L2', 'L3', 'L4', 'L5'];
+    const head = ['Zone', 'Status', 'Property group', 'Techs', 'Open WOs', 'LVL backlog', 'LVL / day', 'Days', 'Weeks', 'LVL >1 wk', 'LVL >2 wk', 'Scheduled', 'New', 'Urgent', ...Array.from({ length: LEVELS }, (_, i) => 'L' + (i + 1))];
     const row = (z, s) => [
       `<td>${esc(z.id)}</td>`, `<td class="l">${s ? badge(s) : ''}</td>`, `<td class="l" title="${esc(z.group)}">${esc(shortGroup(z.group))}</td>`,
       `<td class="l">${esc(rosterText(z))}</td>`,
       ...[z.openWos, z.totalLvl, z.dailyCap].map(v => `<td class="num">${fmt(v)}</td>`),
       `<td class="num">${fmt(z.days, 2)}</td>`, `<td class="num">${fmt(z.weeks, 2)}</td>`,
-      ...[z.over1wk, z.over2wk, z.scheduled, z.newWos, ...(z.lvl || [])].map(v => `<td class="num">${fmt(v)}</td>`)
+      ...[z.over1wk, z.over2wk, z.scheduled, z.newWos, z.urgent, ...(z.lvl || [])].map(v => `<td class="num">${fmt(v)}</td>`)
     ].join('');
     $('zoneTable').innerHTML = `<thead><tr>${head.map((h, i) => `<th class="${i < 4 ? 'l' : ''}">${h}</th>`).join('')}</tr></thead>
       <tbody>${model.zones.map(z => `<tr class="click" data-zone="${esc(z.id)}" tabindex="0">${row(z, status(z.days))}</tr>`).join('')}</tbody>

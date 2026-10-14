@@ -118,10 +118,10 @@
     let overall = null, teamLevels = null, teamTechs = null;
     for (const r of rows) {
       const a = clean(r[0]);
-      if (!overall && a === 'Level 1' && isNum(r[4]) && clean(r[10]).includes('%')) {
+      if (!overall && /^(Level|LVL)\s*1$/i.test(a) && isNum(r[4]) && clean(r[10]).includes('%')) {
         overall = { assigned: num(r[4]), completed: num(r[7]), matchRate: pct(r[10]), avgVariance: num(r[13]) };
       }
-      if (/^Level \d$/.test(a) && num(r[1]) > 0 && clean(r[6]).includes('%')) {
+      if (/^(Level|LVL)\s*\d$/i.test(a) && num(r[1]) > 0 && clean(r[6]).includes('%')) {
         levels.push({ level: num(a.replace(/\D/g, '')), target: num(r[1]), assigned: num(r[2]), completed: num(r[3]), inWindow: num(r[4]), variance: num(r[5]), acc: pct(r[6]) });
       }
       if (/^Team Total/i.test(a) && isNum(r[2])) teamLevels = { assigned: num(r[2]), completed: num(r[3]), inWindow: num(r[4]), variance: num(r[5]), acc: pct(r[6]) };

@@ -102,13 +102,13 @@
     $('title').innerHTML = `${esc(cur.id)} <span class="sub" style="font-weight:500">· ${esc(cur.group)}</span> ${badge(s)}`;
     $('subtitle').textContent = `Techs: ${rosterText(cur)} · AppFolio export of ${niceDate(cur.exportDate)}`;
     $('stats').innerHTML = [
-      [fmt(cur.openWos), 'open work orders'], [fmt(cur.newWos), 'not yet assigned'], [fmt(cur.days, 1), 'days to finish'],
+      [fmt(cur.openWos), 'open work orders'], [fmt(cur.newWos), 'not yet assigned'], [fmt(cur.urgent), 'urgent'], [fmt(cur.days, 1), 'days to finish'],
       [fmt(cur.totalLvl), 'LVL waiting'], [fmt(cur.dailyCap), 'LVL per day'], [fmt(cur.over2wk), 'LVL older than 2 weeks']
     ].map(([v, l]) => `<span><b>${v}</b>${l}</span>`).join('');
     const statuses = [...new Set((cur.wos || []).map(w => w.status))].sort();
     const keepS = $('woStatus').value, keepL = $('woLvl').value;
     $('woStatus').innerHTML = `<option value="">All statuses</option>` + statuses.map(s => `<option>${esc(s)}</option>`).join('');
-    $('woLvl').innerHTML = `<option value="">All sizes</option>` + [1, 2, 3, 4, 5].map(l => `<option value="${l}">LVL ${l}</option>`).join('');
+    $('woLvl').innerHTML = `<option value="">All sizes</option>` + [1, 2, 3, 4, 5, 6, 7, 8].map(l => `<option value="${l}">LVL ${l}</option>`).join('');
     $('woStatus').value = keepS; $('woLvl').value = keepL;
   }
 
@@ -121,17 +121,17 @@
       : so === 'new' ? (a, b) => (a.age || 0) - (b.age || 0) : (a, b) => (b.age || 0) - (a.age || 0));
     $('count').textContent = list.length === wos.length ? `${wos.length} work orders` : `${list.length} of ${wos.length} work orders`;
     if (!wos.length) { $('woTable').innerHTML = '<tbody><tr><td class="l">No work order details available for this zone.</td></tr></tbody>'; return; }
-    $('woTable').innerHTML = `<thead><tr><th class="l">Age</th><th class="l">Size</th><th class="l">WO #</th><th class="l">Status</th><th class="l">Job</th><th class="l">Property</th><th class="l">Vendor</th><th class="l">Created</th></tr></thead>
+    $('woTable').innerHTML = `<thead><tr><th class="l">Age</th><th class="l">Size</th><th class="l">WO #</th><th class="l">Status</th><th class="l">Priority</th><th class="l">Job</th><th class="l">Property</th><th class="l">Vendor</th><th class="l">Created</th></tr></thead>
       <tbody>${list.map(w => {
-        const l = Math.min(5, Math.max(1, w.lvl || 1));
+        const l = Math.min(8, Math.max(1, w.lvl || 1));
         const long = w.desc.length > 160;
         return `<tr>
           <td class="l num ${w.age > 14 ? 'age-hi' : w.age > 7 ? 'age-md' : ''}">${w.age == null ? '—' : fmt(w.age) + ' d'}</td>
           <td class="l"><span class="lvl c${l}" style="background:var(--l${l})">${w.lvl || '?'}</span></td>
-          <td class="l num">${esc(w.wo)}</td><td class="l">${esc(w.status)}</td>
+          <td class="l num">${esc(w.wo)}</td><td class="l">${esc(w.status)}</td><td class="l ${/urgent|emergency/i.test(w.priority) ? 'no' : ''}">${esc(w.priority || '—')}</td>
           <td class="wrapcell" style="max-width:480px"><div class="jobtxt${long ? '' : ' open'}" title="${esc(w.instr)}">${esc(w.desc)}</div>${long ? '<span class="hint">Show more</span>' : ''}</td>
           <td class="wrapcell" style="min-width:200px">${esc(w.property)}</td><td class="l">${esc(w.vendor)}</td><td class="l num">${niceDate(w.created)}</td></tr>`;
-      }).join('') || '<tr><td class="l" colspan="8">No work orders match these filters.</td></tr>'}</tbody>`;
+      }).join('') || '<tr><td class="l" colspan="9">No work orders match these filters.</td></tr>'}</tbody>`;
   }
 
   document.addEventListener('click', e => {
