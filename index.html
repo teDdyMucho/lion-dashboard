@@ -23,6 +23,7 @@
     <div class="grp-label">On this page</div>
     <a href="#overview" class="active"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10.5 12 3l9 7.5V20a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"/></svg>Overview</a>
     <a href="#zones"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="3" width="8" height="8" rx="2"/><rect x="13" y="3" width="8" height="8" rx="2"/><rect x="3" y="13" width="8" height="8" rx="2"/><rect x="13" y="13" width="8" height="8" rx="2"/></svg>Zones</a>
+    <a href="#waiting"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>Waiting</a>
     <a href="#charts"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg>Charts</a>
     <a href="#table"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 10h18M3 15h18M9 4v16"/></svg>All numbers</a>
     <a href="#help"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M9.5 9.5a2.5 2.5 0 1 1 3.5 2.3c-.7.4-1 .9-1 1.7M12 17h.01"/></svg>How to read</a>
@@ -51,6 +52,19 @@
     </div>
     <section class="zones" id="zoneCards"></section>
 
+    <div class="sec-head" id="waiting">
+      <div><h2>Waiting on vendors, parts or approvals</h2><p class="sub small">Work orders parked outside the team's control. From the "Waiting Work Orders" tab.</p></div>
+      <div class="legend"><select id="waitZone" class="btn" style="padding:6px 10px"><option value="">All zones</option></select></div>
+    </div>
+    <section class="card" style="padding:0">
+      <div class="tools" style="border-radius:var(--r) var(--r) 0 0">
+        <input type="search" id="waitSearch" placeholder="Search property, job, vendor, notes, WO #…">
+        <span class="count" id="waitCount"></span>
+        <button class="btn" type="button" id="waitMore" hidden>Show all</button>
+      </div>
+      <div class="table-wrap wotable" style="box-shadow:none"><table id="waitTable"></table></div>
+    </section>
+
     <div class="sec-head" id="charts"><div><h2>Charts</h2></div></div>
     <div class="grid2">
       <section class="card">
@@ -77,7 +91,7 @@
       <dl>
         <dt>Days to clear</dt><dd>If no new work came in, how many working days until every open work order is finished. This is the main number to watch.</dd>
         <dt>Status</dt><dd><span class="badge b-good" data-s="good"></span> up to 5 days (one work week) &nbsp; <span class="badge b-warn" data-s="warn"></span> 5–10 days &nbsp; <span class="badge b-crit" data-s="crit"></span> more than 10 days</dd>
-        <dt>LVL (effort points)</dt><dd>Every work order gets a level from 1 (quick job) to 5 (big job). Adding them up gives the total effort waiting.</dd>
+        <dt>LVL (effort points)</dt><dd>Every work order gets a level by how long it takes a technician (1 = up to an hour … 8 = a full day). Adding them up gives the total effort waiting.<div class="table-wrap" style="margin-top:8px"><table id="lvlGuide"></table></div></dd>
         <dt>Daily capacity</dt><dd>How many LVL points the zone's technicians can finish in one day (the number next to each tech's name).</dd>
         <dt>Not yet assigned</dt><dd>Work orders still marked New — nobody is working on them yet.</dd>
         <dt>Where the data comes from</dt><dd>The Portfolio Maintenance &amp; Backlog Google Sheet (link in the sidebar). The page reloads it every 10 minutes.</dd>
@@ -115,13 +129,14 @@
   const techNames = z => (z.roster && typeof z.roster !== 'string') ? z.roster.filter(r => r.cap > 0).map(r => r.name).join(', ') : rosterText(z);
 
   let model = null;
+  let waitExpanded = false;
 
   // ---------- data loading ----------
   async function loadLive() {
     const texts = {};
     await Promise.all(P.TABS.map(async tab => {
       const res = await fetch(P.csvUrl(tab), { cache: 'no-store' });
-      if (!res.ok) throw new Error(tab + ' HTTP ' + res.status);
+      if (!res.ok) { if (P.OPTIONAL_TABS.includes(tab)) { console.warn(tab + ' HTTP ' + res.status + ' (optional tab, skipped)'); return; } throw new Error(tab + ' HTTP ' + res.status); }
       texts[tab] = await res.text();
     }));
     const m = P.buildModel(texts);
@@ -214,6 +229,10 @@
       </a>`;
     }).join('');
 
+    renderWaiting();
+    $('lvlGuide').innerHTML = (model.assessment || []).length ? '<thead><tr><th class="l">LVL</th><th class="l">Time</th><th class="l">Typical work</th></tr></thead><tbody>' +
+      model.assessment.map(a => `<tr><td class="l"><span class="lvl c${a.lvl} " style="background:var(--l${Math.max(1, a.lvl)})">${a.lvl}</span></td><td class="l">${esc(a.duration)}</td><td class="wrapcell">${esc(a.scope)}</td></tr>`).join('') + '</tbody>' : '';
+
     // Days chart
     const axisMax = Math.ceil(Math.max(WARN_MAX + 2, ...zones.map(z => z.days)) / 2) * 2;
     const pct = v => v / axisMax * 100;
@@ -244,18 +263,51 @@
     }).join('');
 
     // Table
-    const head = ['Zone', 'Status', 'Property group', 'Techs', 'Open WOs', 'LVL backlog', 'LVL / day', 'Days', 'Weeks', 'LVL >1 wk', 'LVL >2 wk', 'Scheduled', 'New', 'Urgent', ...Array.from({ length: LEVELS }, (_, i) => 'L' + (i + 1))];
+    const head = ['Zone', 'Status', 'Property group', 'Techs', 'Open WOs', 'LVL backlog', 'LVL / day', 'Days', 'Weeks', 'LVL >1 wk', 'LVL >2 wk', 'Scheduled', 'New', 'Urgent', 'Waiting', ...Array.from({ length: LEVELS }, (_, i) => 'L' + (i + 1))];
     const row = (z, s) => [
       `<td>${esc(z.id)}</td>`, `<td class="l">${s ? badge(s) : ''}</td>`, `<td class="l" title="${esc(z.group)}">${esc(shortGroup(z.group))}</td>`,
       `<td class="l">${esc(rosterText(z))}</td>`,
       ...[z.openWos, z.totalLvl, z.dailyCap].map(v => `<td class="num">${fmt(v)}</td>`),
       `<td class="num">${fmt(z.days, 2)}</td>`, `<td class="num">${fmt(z.weeks, 2)}</td>`,
-      ...[z.over1wk, z.over2wk, z.scheduled, z.newWos, z.urgent, ...(z.lvl || [])].map(v => `<td class="num">${fmt(v)}</td>`)
+      ...[z.over1wk, z.over2wk, z.scheduled, z.newWos, z.urgent, z.waiting, ...(z.lvl || [])].map(v => `<td class="num">${fmt(v)}</td>`)
     ].join('');
     $('zoneTable').innerHTML = `<thead><tr>${head.map((h, i) => `<th class="${i < 4 ? 'l' : ''}">${h}</th>`).join('')}</tr></thead>
       <tbody>${model.zones.map(z => `<tr class="click" data-zone="${esc(z.id)}" tabindex="0">${row(z, status(z.days))}</tr>`).join('')}</tbody>
       ${t.id ? `<tfoot><tr>${row({ ...t, id: 'Portfolio total' }, pStatus)}</tr></tfoot>` : ''}`;
   }
+
+  // ---------- waiting work orders ----------
+  function renderWaiting() {
+    const all = model.waiting || [];
+    const sel = $('waitZone'), keep = sel.value;
+    sel.innerHTML = '<option value="">All zones</option>' + model.zones.map(z => `<option value="${esc(z.id)}">${esc(z.id)} (${z.waiting || 0})</option>`).join('');
+    sel.value = keep;
+    const q = $('waitSearch').value.trim().toLowerCase(), zf = sel.value;
+    const list = all.filter(w => (!zf || w.zone === zf) && (!q || [w.property, w.wo, w.desc, w.vendor, w.notes].join(' ').toLowerCase().includes(q)))
+      .sort((a, b) => (b.age || 0) - (a.age || 0));
+    $('waitCount').textContent = list.length === all.length ? `${all.length} waiting` : `${list.length} of ${all.length} waiting`;
+    const LIMIT = 12, shown = waitExpanded ? list : list.slice(0, LIMIT);
+    $('waitMore').hidden = list.length <= LIMIT;
+    $('waitMore').textContent = waitExpanded ? 'Show fewer' : `Show all ${list.length}`;
+    if (!all.length) { $('waitTable').innerHTML = '<tbody><tr><td class="l">No waiting work orders in the sheet.</td></tr></tbody>'; return; }
+    $('waitTable').innerHTML = `<thead><tr><th class="l">Zone</th><th class="l">Age</th><th class="l">WO #</th><th class="l">Job</th><th class="l">Property</th><th class="l">Vendor</th><th class="l">Status notes</th><th class="l">Scheduled</th></tr></thead>
+      <tbody>${shown.map(w => { const long = w.desc.length > 140; return `<tr>
+        <td class="l">${esc(w.zone || '—')}</td>
+        <td class="l num ${w.age > 60 ? 'age-hi' : w.age > 30 ? 'age-md' : ''}">${w.age == null ? '—' : fmt(w.age) + ' d'}</td>
+        <td class="l num">${esc(w.wo)}</td>
+        <td class="wrapcell" style="max-width:380px"><div class="jobtxt${long ? '' : ' open'}">${esc(w.desc)}</div>${long ? '<span class="hint">Show more</span>' : ''}</td>
+        <td class="wrapcell" style="min-width:180px">${esc(w.property)}</td>
+        <td class="l">${esc(w.vendor || '—')}</td>
+        <td class="wrapcell" style="min-width:160px">${esc(w.notes || '—')}</td>
+        <td class="l num">${w.start ? niceDate(w.start) : '—'}</td></tr>`; }).join('') || '<tr><td class="l" colspan="8">No work orders match.</td></tr>'}</tbody>`;
+  }
+  $('waitMore').addEventListener('click', () => { waitExpanded = !waitExpanded; renderWaiting(); });
+  $('waitZone').addEventListener('change', () => { waitExpanded = false; renderWaiting(); });
+  $('waitSearch').addEventListener('input', () => { waitExpanded = false; renderWaiting(); });
+  document.addEventListener('click', e => {
+    const cell = e.target.closest('td'); const j = cell && cell.querySelector('.jobtxt'), h = cell && cell.querySelector('.hint');
+    if (j && h) { j.classList.toggle('open'); h.textContent = j.classList.contains('open') ? 'Show less' : 'Show more'; }
+  });
 
   // ---------- tooltip ----------
   const tip = $('tip');

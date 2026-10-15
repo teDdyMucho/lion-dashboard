@@ -8,7 +8,8 @@
 // each Zone tab's panel instead.
 (function (root) {
   const SHEET_ID = '1IzzcGQLuTks4ZQVuMKr0LVhkYGRLHy2zArsVgsh_ClA';
-  const TABS = ['Master Dashboard', 'Zone 1', 'Zone 2', 'Zone 3', 'Zone 4', 'Zone 5', 'Zone 6', 'Zone 7', 'Zone 8', 'Zone 9'];
+  const TABS = ['Master Dashboard', 'Zone 1', 'Zone 2', 'Zone 3', 'Zone 4', 'Zone 5', 'Zone 6', 'Zone 7', 'Zone 8', 'Zone 9', 'Waiting Work Orders', 'Assessment LVL'];
+  const OPTIONAL_TABS = ['Waiting Work Orders', 'Assessment LVL'];   // dashboard still works if these are missing
 
   function csvUrl(tab) {
     return 'https://docs.google.com/spreadsheets/d/' + SHEET_ID +
@@ -55,6 +56,9 @@
       if (/^ZONE/.test(A) && /BREAKDOWN|BENCHMARK|CAPACITY/.test(A)) { section = 1; continue; }
       if (/LVL BREAKDOWN|COMPLEXITY/.test(A)) { section = 2; continue; }
       if (/STATUS BREAKDOWN/.test(A)) { section = 3; continue; }
+      if (/WAITING/.test(A) && /BREAKDOWN/.test(A)) { section = 4; continue; }
+      // Any other all-caps title row starts a section we don't know: ignore its rows.
+      if (a && a === A && /[A-Z]{4}/.test(A) && !/^ZONE\s*\d|^PORTFOLIO TOTAL/.test(A) && !isNum(a) && r.slice(1).every(v => !clean(v))) { section = 0; continue; }
       if (!kpi && section === 0 && isNum(a)) {
         const n = numsFrom(r, 0);
         kpi = { totalLvl: n[0] || 0, openWos: n[1] || 0, dailyCap: n[2] || 0, days: n[3] || 0, weeks: n[4] || 0 };
@@ -77,6 +81,8 @@
         z.lvl = n.slice(1);
       } else if (section === 3) {
         z.scheduled = n[0] || 0; z.newWos = n[1] || 0; z.urgent = n[2] || 0;
+      } else if (section === 4) {
+        z.waitingMaster = n[0] || 0; z.waiting1wk = n[1] || 0; z.waiting2wk = n[2] || 0;
       }
     }
     const total = zones.TOTAL;
@@ -155,9 +161,47 @@
     return { panel, roster, exportDate: exportDate ? ymd(exportDate) : '', wos };
   }
 
+  // --- Waiting Work Orders: WOs parked on vendors / parts / approvals.
+  // Columns are located by header text; falls back to the known order.
+  function parseWaiting(rows) {
+    const list = [];
+    let col = { zone: 0, property: 1, wo: 2, desc: 3, vendor: 4, notes: 5, start: 6, created: 7 };
+    for (const r of rows) {
+      const cells = r.map(clean);
+      const wi = cells.findIndex(v => /^Work Order Number$/i.test(v));
+      if (wi >= 0) {
+        const find = (re, dflt) => { const i = cells.findIndex(v => re.test(v)); return i >= 0 ? i : dflt; };
+        col = { zone: find(/^Zone$/i, 0), property: find(/^Property$/i, 1), wo: wi, desc: find(/^Job Description$/i, 3), vendor: find(/^Vendor$/i, 4),
+          notes: find(/^Status Notes$/i, 5), start: find(/^Scheduled Start$/i, 6), created: find(/^Created Date$/i, 7) };
+        continue;
+      }
+      const wo = cells[col.wo];
+      if (!/^\d+-\d+$/.test(wo)) continue;
+      const d = s => { const m = clean(s).match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/); return m ? `${m[3]}-${m[1].padStart(2, '0')}-${m[2].padStart(2, '0')}` : ''; };
+      const zn = num(cells[col.zone]);
+      list.push({ zone: zn ? 'Zone ' + zn : '', property: cells[col.property], wo, desc: cells[col.desc], vendor: cells[col.vendor],
+        notes: cells[col.notes], start: d(cells[col.start]), created: d(cells[col.created]) });
+    }
+    return list;
+  }
+
+  // --- Assessment LVL: what each level means (reference table).
+  function parseAssessment(rows) {
+    const levels = [];
+    for (const r of rows) {
+      const m = clean(r[0]).match(/^(?:LVL|Level)\s*(\d)$/i);
+      if (m) levels.push({ lvl: +m[1], duration: clean(r[1]), scope: clean(r[2]) });
+    }
+    return levels.sort((a, b) => a.lvl - b.lvl);
+  }
+
   // texts: { 'Master Dashboard': csv, 'Zone 1': csv, ... }
   function buildModel(texts) {
     const model = parseMaster(parseCSV(texts['Master Dashboard'] || ''));
+    model.waiting = parseWaiting(parseCSV(texts['Waiting Work Orders'] || ''));
+    model.assessment = parseAssessment(parseCSV(texts['Assessment LVL'] || ''));
+    const today = ymd(new Date());
+    for (const w of model.waiting) w.age = w.created ? Math.round((toDate(today) - toDate(w.created)) / 864e5) : null;
     for (const z of model.zones) {
       if (!texts[z.id]) continue;
       const zt = parseZone(parseCSV(texts[z.id]));
@@ -174,9 +218,11 @@
       if (!z.weeks) z.weeks = num(p['Weekly Backlog (Wks)']);
       if (z.urgent == null) z.urgent = z.wos.filter(w => /urgent|emergency/i.test(w.priority)).length;
     }
+    // Waiting count: prefer the Master tab's figure once its formulas are live, else count the Waiting tab rows ourselves.
+    for (const z of model.zones) z.waiting = z.waitingMaster || model.waiting.filter(w => w.zone === z.id).length;
     if (model.total) {
       const t = model.total;
-      for (const k of ['scheduled', 'newWos', 'urgent', 'assigned']) if (t[k] == null) t[k] = model.zones.reduce((s, z) => s + (z[k] || 0), 0);
+      for (const k of ['scheduled', 'newWos', 'urgent', 'assigned', 'waiting']) if (t[k] == null) t[k] = model.zones.reduce((s, z) => s + (z[k] || 0), 0);
       if (!t.roster) t.roster = model.zones.reduce((s, z) => s + (z.roster || []).filter(r => r.cap > 0).length, 0) + ' Roster Technicians';
     }
     const dates = model.zones.map(z => z.exportDate).filter(Boolean).sort();
@@ -184,7 +230,7 @@
     return model;
   }
 
-  const api = { SHEET_ID, TABS, csvUrl, parseCSV, buildModel };
+  const api = { SHEET_ID, TABS, OPTIONAL_TABS, csvUrl, parseCSV, buildModel };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else root.LionParser = api;
 })(this);

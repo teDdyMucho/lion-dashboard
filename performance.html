@@ -26,7 +26,6 @@
     <a href="#techs">Technicians</a>
     <a href="#flow">New vs finished</a>
     <a href="#zones">By zone</a>
-    <a href="#log">Time estimates</a>
     <a id="srcLink" target="_blank" rel="noopener"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><path d="M14 3v6h6M8 13h8M8 17h8"/></svg>Open Google Sheet</a>
     <div class="foot"><span id="footDate"></span><span>Auto-refreshes every 10 min</span></div>
   </aside>
@@ -62,24 +61,12 @@
         <select id="zoneRange" class="btn" style="padding:6px 10px"><option value="7">Last 7 days</option><option value="14">Last 14 days</option><option value="28">Last 28 days</option></select></div></div>
     <section class="card"><div class="zrows" id="zoneRows"></div></section>
 
-    <div class="sec-head" id="log"><div><h2>Time estimates vs. actual</h2></div></div>
-    <details class="card sect" style="margin-top:0" open>
-      <summary id="logTitle">Latest daily log</summary>
-      <div class="inner">
-        <div class="chips" id="logChips"></div>
-        <div class="grid2" style="margin-top:12px">
-          <div class="table-wrap"><table id="logTable"></table></div>
-          <div><h2 style="font-size:15px;margin-bottom:8px">Accuracy by estimated level</h2><div class="table-wrap"><table id="levelTable"></table></div></div>
-        </div>
-      </div>
-    </details>
     <details class="card sect help">
       <summary>How to read this page</summary>
       <div class="inner"><dl>
         <dt>Completion rate</dt><dd>Jobs finished ÷ jobs scheduled. 90% or more is the target; 80–89% is acceptable; under 80% needs attention.</dd>
         <dt>Last 7 / 30 days</dt><dd>The same rate, but only counting the trailing 7 or 30 days. Compare it with the all-time rate to see if things are improving.</dd>
         <dt>New vs. finished</dt><dd>New = work orders created that day. Finished = work orders closed that day. More finished than new means the backlog is going down.</dd>
-        <dt>Within estimate</dt><dd>Each job gets an estimated level (1 = about 1 hour, 2 = about 2 hours …). A job is "within estimate" when the actual clocked time landed in that hour band.</dd>
       </dl></div>
     </details>
   </div></main>
@@ -169,7 +156,7 @@
   function mountChart(id, chart) { $(id).innerHTML = chart.html || chart; tipState[id] = chart.tipFn; }
 
   function render() {
-    const { perf, rolling, zoneDaily, dailyLog, tally } = model;
+    const { perf, rolling, zoneDaily } = model;
     const team = perf.team || {};
     const r7 = team.r7, overall = team.rate;
     const t7 = tone(r7);
@@ -214,7 +201,6 @@
     const tc = { good: 0, warn: 0, crit: 0 };
     techs.forEach(t => tc[tone(t.rate)]++);
     $('techLegend').innerHTML = ['good', 'warn', 'crit'].map(s => `<span>${badge(s, TECH_LABEL)}<span class="n">${tc[s]}</span></span>`).join('');
-    const tallyByName = Object.fromEntries((tally.techs || []).map(t => [t.name.toLowerCase(), t]));
     $('techCards').innerHTML = techs.map(t => {
       const s = tone(t.rate), s7 = tone(t.r7);
       const dir = t.r7 == null || t.rate == null ? '' : t.r7 - t.rate > 0.03 ? ' ▲' : t.r7 - t.rate < -0.03 ? ' ▼' : '';
@@ -235,16 +221,6 @@
 
     renderZones();
 
-    // Daily log
-    const dl = dailyLog, jobs = dl.jobs || [];
-    const within = jobs.filter(j => j.inWindow).length, over = jobs.filter(j => j.actual > j.target).length;
-    $('logTitle').innerHTML = `Daily log for ${niceDate(dl.date)} <span class="small">${jobs.length} jobs with clocked time</span>`;
-    $('logChips').innerHTML = jobs.length ? `<span><b>${within} of ${jobs.length}</b> jobs within estimate (${pc(within / jobs.length)})</span><span><b>${over}</b> took longer than estimated</span><span>Team variance: <b>${(tally.overall.avgVariance >= 0 ? '+' : '') + fmt(tally.overall.avgVariance, 2)} hrs</b> per job</span>` : '<span>No clocked jobs logged for this day.</span>';
-    $('logTable').innerHTML = `<thead><tr><th class="l">Tech</th><th class="l">WO #</th><th>Est. level</th><th>Target</th><th>Actual</th><th>Landed</th><th class="l">Within?</th></tr></thead><tbody>${
-      jobs.map(j => `<tr><td class="l">${esc(j.tech)}</td><td class="l num">${esc(j.wo)}</td><td class="num">L${j.estLevel}</td><td class="num">${fmt(j.target, 1)} h</td><td class="num">${fmt(j.actual, 1)} h</td><td class="num">L${j.landed}</td><td class="l ${j.inWindow ? 'yes' : 'no'}">${j.inWindow ? 'Yes' : 'No'}</td></tr>`).join('') || '<tr><td class="l" colspan="7">No jobs logged.</td></tr>'}</tbody>`;
-    $('levelTable').innerHTML = `<thead><tr><th class="l">Estimated</th><th>Target</th><th>Jobs</th><th>Within</th><th>Accuracy</th></tr></thead><tbody>${
-      (tally.levels || []).filter(l => l.assigned > 0).map(l => `<tr><td class="l">Level ${l.level}</td><td class="num">${fmt(l.target, 1)} h</td><td class="num">${fmt(l.assigned)}</td><td class="num">${fmt(l.inWindow)}</td><td class="num"><b>${pc(l.acc)}</b></td></tr>`).join('') || '<tr><td class="l" colspan="5">No data.</td></tr>'}</tbody>
-      ${tally.teamLevels ? `<tfoot><tr><td class="l">All levels</td><td></td><td class="num">${fmt(tally.teamLevels.assigned)}</td><td class="num">${fmt(tally.teamLevels.inWindow)}</td><td class="num">${pc(tally.teamLevels.acc)}</td></tr></tfoot>` : ''}`;
   }
 
   function renderZones() {

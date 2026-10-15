@@ -6,7 +6,7 @@
 // row *pattern*, never by header text.
 (function (root) {
   const SHEET_ID = '1QZtGnVHCCoNpvX0IW-8Rq_E8WyjrU6UqZvSGo2yhMnk';
-  const TABS = ['Daily Work Orders by Zone', 'Work Order Rolling Trends', 'Daily Input Log', 'Performance Trends', 'Work Order Daily Log', 'Estimation & Tech Tally'];
+  const TABS = ['Daily Work Orders by Zone', 'Work Order Rolling Trends', 'Daily Input Log', 'Performance Trends'];
 
   function csvUrl(tab) {
     return 'https://docs.google.com/spreadsheets/d/' + SHEET_ID +
@@ -68,9 +68,15 @@
     for (const r of rows) {
       const d = isoDate(r[1]);
       if (d) daily.push({ date: d, newWos: num(r[2]), comp: num(r[3]), rate: pct(r[4]), r7: pct(r[5]), r30: pct(r[6]) });
-      else if (!kpi && !clean(r[1]) && isNum(r[2]) && clean(r[3]).includes('%')) kpi = { comp: num(r[2]), rate: pct(r[3]), r7: pct(r[4]), r30: pct(r[5]) };
+      else if (!kpi && !clean(r[1]) && isNum(r[2])) {
+        // Summary row: one or two plain numbers (completed, or new + completed) followed by percent cells (overall, 7-day, 30-day).
+        const cells = r.slice(2).map(clean).filter(Boolean);
+        const nums = cells.filter(v => isNum(v) && !v.includes('%')).map(num);
+        const rates = cells.filter(v => v.includes('%')).map(pct);
+        if (rates.length) kpi = { newWos: nums.length > 1 ? nums[0] : null, comp: nums[nums.length - 1] || 0, rate: rates[0], r7: rates[1], r30: rates[2] };
+      }
     }
-    if (kpi) kpi.newWos = daily.reduce((s, x) => s + x.newWos, 0);
+    if (kpi && kpi.newWos == null) kpi.newWos = daily.reduce((s, x) => s + x.newWos, 0);
     return { daily, kpi: kpi || {} };
   }
 
@@ -97,52 +103,13 @@
     return { list };
   }
 
-  // --- Work Order Daily Log: one day's jobs with estimated vs actual hours ---
-  function parseDailyLog(rows) {
-    let date = '';
-    const jobs = [];
-    for (const r of rows) {
-      const m = clean(r[0]).match(/Date:\s*(\d{1,2}\/\d{1,2}\/\d{4})/i);
-      if (m) date = usDate(m[1]);
-      if (/^\d+-\d+$/.test(clean(r[1]))) {
-        jobs.push({ tech: clean(r[0]), wo: clean(r[1]), estLevel: num(clean(r[2]).replace(/\D/g, '')), target: num(r[3]), clockIn: clean(r[4]), clockOut: clean(r[5]),
-          actual: num(r[6]), inWindow: /^y/i.test(clean(r[7])), landed: num(clean(r[8]).replace(/\D/g, '')) });
-      }
-    }
-    return { date, jobs };
-  }
-
-  // --- Estimation & Tech Tally ---
-  function parseTally(rows) {
-    const levels = [], techs = [];
-    let overall = null, teamLevels = null, teamTechs = null;
-    for (const r of rows) {
-      const a = clean(r[0]);
-      if (!overall && /^(Level|LVL)\s*1$/i.test(a) && isNum(r[4]) && clean(r[10]).includes('%')) {
-        overall = { assigned: num(r[4]), completed: num(r[7]), matchRate: pct(r[10]), avgVariance: num(r[13]) };
-      }
-      if (/^(Level|LVL)\s*\d$/i.test(a) && num(r[1]) > 0 && clean(r[6]).includes('%')) {
-        levels.push({ level: num(a.replace(/\D/g, '')), target: num(r[1]), assigned: num(r[2]), completed: num(r[3]), inWindow: num(r[4]), variance: num(r[5]), acc: pct(r[6]) });
-      }
-      if (/^Team Total/i.test(a) && isNum(r[2])) teamLevels = { assigned: num(r[2]), completed: num(r[3]), inWindow: num(r[4]), variance: num(r[5]), acc: pct(r[6]) };
-      const name = clean(r[8]);
-      if (name && name !== 'Technician' && isNum(r[9]) && clean(r[15]).includes('%')) {
-        const t = { name, assigned: num(r[9]), completed: num(r[10]), target: num(r[11]), logged: num(r[12]), net: num(r[13]), avg: num(r[14]), acc: pct(r[15]) };
-        if (/^Team Total/i.test(name)) teamTechs = t; else techs.push(t);
-      }
-    }
-    return { levels, techs, overall: overall || {}, teamLevels, teamTechs };
-  }
-
   function buildModel(texts) {
     const get = tab => parseCSV(texts[tab] || '');
     const perf = parsePerformance(get('Performance Trends'));
     const rolling = parseRolling(get('Work Order Rolling Trends'));
     const inputLog = parseInputLog(get('Daily Input Log'));
     const zoneDaily = parseZoneDaily(get('Daily Work Orders by Zone'));
-    const dailyLog = parseDailyLog(get('Work Order Daily Log'));
-    const tally = parseTally(get('Estimation & Tech Tally'));
-    return { perf, rolling, inputLog, zoneDaily, dailyLog, tally };
+    return { perf, rolling, inputLog, zoneDaily };
   }
 
   const api = { SHEET_ID, TABS, csvUrl, parseCSV, buildModel };

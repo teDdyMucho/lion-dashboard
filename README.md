@@ -39,7 +39,6 @@ Upload every `.html`, `.css` and `.js` file in this folder to any static host
 | Technicians | One card per tech: all-time rate, last 7 / 30 days, status (High performer ≥ 90% · Consistent 80–89% · Needs support < 80%) |
 | New vs. finished | Work orders created vs. closed per day; above 100% means the backlog shrank that day |
 | By zone | New vs. finished per zone over the last 7 / 14 / 28 days, with "backlog up/down by N" |
-| Time estimates vs. actual | The latest daily log: estimated level vs. clocked hours per job, and accuracy per level |
 
 ## Backlog page
 
@@ -49,7 +48,8 @@ Upload every `.html`, `.css` and `.js` file in this folder to any static host
 | 3 big numbers | Open work orders · Days to finish all · Zones behind |
 | Zone list | One row per zone, most behind first; bar length = days of work waiting; colour = **Behind / Watch / On track** |
 | Click a zone | Opens `zone.html` (same tab; "Back to dashboard" returns) listing that zone's open work orders (searchable, filterable, oldest first; click a job to read the full text) |
-| More details | Collapsed: charts, the full numbers table (same as the Master Dashboard tab), and a "how to read" guide |
+| Waiting on vendors / parts | Work orders parked outside the team's control, from the "Waiting Work Orders" tab (zone filter, search, age) |
+| More details | Charts, the full numbers table (same as the Master Dashboard tab), and a "how to read" guide with the LVL definitions from the "Assessment LVL" tab |
 
 Status thresholds (days to clear): **On track** ≤ 5 · **Watch** 5–10 · **Behind** > 10.
 Change `GOOD_MAX` / `WARN_MAX` at the top of the script in `index.html` and `zone.html` to adjust.
@@ -73,6 +73,7 @@ Both sheets must stay **"Anyone with the link can view"** and keep their current
 - Backlog sheet: a `Master Dashboard` tab plus `Zone 1` … `Zone 9` tabs with the capacity
   panel in columns K–N and the AppFolio export in columns A–I.
 - Performance sheet: the `Daily Work Orders by Zone`, `Work Order Rolling Trends`,
-  `Daily Input Log`, `Performance Trends`, `Work Order Daily Log` and
-  `Estimation & Tech Tally` tabs. Rows are recognised by pattern (dates, "Zone N",
-  "Level N", technician names), so adding rows is fine; moving columns is not.
+  `Daily Input Log` and `Performance Trends` tabs.
+- Rows are recognised by pattern (dates, "Zone N", "LVL N", technician names) and columns
+  by header text, so adding rows or inserting columns is fine; renaming the tabs or the
+  panel labels is not. The `Waiting Work Orders` and `Assessment LVL` tabs are optional.

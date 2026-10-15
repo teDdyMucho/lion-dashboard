@@ -65,9 +65,9 @@
 
   async function loadLive() {
     const texts = {};
-    await Promise.all(['Master Dashboard', zoneId].map(async tab => {
+    await Promise.all(['Master Dashboard', zoneId, ...P.OPTIONAL_TABS].map(async tab => {
       const res = await fetch(P.csvUrl(tab), { cache: 'no-store' });
-      if (!res.ok) throw new Error(tab + ' HTTP ' + res.status);
+      if (!res.ok) { if (P.OPTIONAL_TABS.includes(tab)) return; throw new Error(tab + ' HTTP ' + res.status); }
       texts[tab] = await res.text();
     }));
     const z = P.buildModel(texts).zones.find(z => z.id === zoneId);
@@ -102,7 +102,7 @@
     $('title').innerHTML = `${esc(cur.id)} <span class="sub" style="font-weight:500">· ${esc(cur.group)}</span> ${badge(s)}`;
     $('subtitle').textContent = `Techs: ${rosterText(cur)} · AppFolio export of ${niceDate(cur.exportDate)}`;
     $('stats').innerHTML = [
-      [fmt(cur.openWos), 'open work orders'], [fmt(cur.newWos), 'not yet assigned'], [fmt(cur.urgent), 'urgent'], [fmt(cur.days, 1), 'days to finish'],
+      [fmt(cur.openWos), 'open work orders'], [fmt(cur.newWos), 'not yet assigned'], [fmt(cur.urgent), 'urgent'], [fmt(cur.waiting), 'waiting on vendor / parts'], [fmt(cur.days, 1), 'days to finish'],
       [fmt(cur.totalLvl), 'LVL waiting'], [fmt(cur.dailyCap), 'LVL per day'], [fmt(cur.over2wk), 'LVL older than 2 weeks']
     ].map(([v, l]) => `<span><b>${v}</b>${l}</span>`).join('');
     const statuses = [...new Set((cur.wos || []).map(w => w.status))].sort();
